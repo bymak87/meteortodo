@@ -25,4 +25,9 @@ if(Meteor.isClient){
       return false;
     }
   });
+  Template.body.helpers({
+    tasks: function(){
+      return Tasks.find({}, {sort: {createdAt: -1}});
+    }
+  });
 }
