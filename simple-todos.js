@@ -30,4 +30,15 @@ if(Meteor.isClient){
       return Tasks.find({}, {sort: {createdAt: -1}});
     }
   });
+
+
+Template.task.events({
+  "click .toggle-checked": function (){
+    //set the checked property to the opposite of its current value
+    Tasks.update(this._id, {$set: {checked: ! this.checked}});
+  },
+  "click .delete": function (){
+    Tasks.remove(this._id);
+  }
+});
 }
