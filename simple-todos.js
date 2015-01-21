@@ -1,8 +1,11 @@
 //simple-todos.js
+
 Tasks = new Mongo.Collection("tasks");
 
 if(Meteor.isClient){
   // This code only runs on the client
+  Meteor.subscribe("tasks");
+
   Template.body.helpers({
     tasks: function (){
       //if hide completed tasks is checked, filter tasks
@@ -38,6 +41,12 @@ if(Meteor.isClient){
     }
   });
 
+Template.task.helpers({
+  //Checks to see if the current user is the task owner
+  isOwner: function () {
+    return this.owner === Meteor.userId();
+  }
+});
 
 Template.task.events({
   "click .toggle-checked": function (){
@@ -46,7 +55,12 @@ Template.task.events({
   },
   "click .delete": function (){
     Meteor.call("deleteTask", this._id);
+  },
+  //add an event for the new button to Template.task.events
+  "click .toggle-private" : function (){
+    Meteor.call("setPrivate", this._id, ! this.private);
   }
+
 });
 
 
@@ -61,6 +75,7 @@ Meteor.methods({
     if(! Meteor.userId()){
       throw new Meteor.Error("not-authorized");
     }
+
     Tasks.insert({
       text: text,
       createdAt: new Date(),
@@ -69,9 +84,40 @@ Meteor.methods({
     });
   },
   deleteTask: function (taskId){
+    var task = Tasks.findOne(taskId);
+    if(task.private && task.owner !== Meteor.userId()){
+      throw new Meteor.Error("not-authorized");
+    }
+
     Tasks.remove(taskId);
   },
   setChecked: function (taskId, setChecked){
+    var task = Tasks.findOne(taskId);
+      if(task.private && task.owner !== Meteor.userId()){
+        throw new Meteor.Error("not-authorized");
+      }
+
     Tasks.update(taskId, { $set: {checked: setChecked} });
+  },
+  //Add a method to Meteor.methods called setPrivate
+  setPrivate: function (taskId, setToPrivate) {
+    var task = Tasks.findOne(taskId);
+
+    //Make sure only the task owner can make a task private
+    if(task.owner !== Meteor.userId()) {
+      throw new Meteor.Error("not-authorized");
+    }
+    Tasks.update(taskId, { $set: { private: setToPrivate}});
   }
+
 });
+if(Meteor.isServer){
+  Meteor.publish("tasks", function (){
+    return Tasks.find({
+      $or: [
+      {private: {$ne: true}},
+      {owner: this.userId}
+      ]
+    });
+  });
+}
